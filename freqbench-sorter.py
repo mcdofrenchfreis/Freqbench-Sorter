@@ -41,24 +41,25 @@ def get_sorted_frequencies(freq_cpus):
             freq_energy_power = {}
             freqs = freq_cpus[cluster][cpu]
             if freqs:
+                # Step 1: Sort frequencies based on Energy (J) < ULPMark-CM (iter/mJ) and CoreMarks (iter/s)
                 for freq_khz, values in freqs.items():
                     coremarks = values[0]
                     coremarks_mhz = values[1]
                     power = values[2]
                     energy = values[3]
                     ulpmark = values[4]
-                    # Calculate the efficiency score based on CoreMarks/MHz and ULPMark-CM (iter/mJ)
-                    efficiency = (coremarks_mhz * ulpmark) / (power / 1000)
-                    if efficiency > 0:
-                        freq_energy_power[freq_khz] = (energy, power, efficiency)
+                    if energy < ulpmark:
+                        freq_energy_power[freq_khz] = (energy, power, coremarks)
+
                 if freq_energy_power:
-                    # Sort frequencies based on efficiency score
-                    sorted_freqs_step1 = sorted(freq_energy_power.items(), key=lambda x: x[1][2], reverse=True)
-                    # Sort frequencies based on CoreMarks (iter/s), dropping the lower scores up to 4 decimal places (except for the lowest and highest frequencies)
-                    freqs_to_sort_step2 = [freq_khz for freq_khz, (energy, power, efficiency) in sorted_freqs_step1 if freq_khz not in [min(freq_energy_power.keys()), max(freq_energy_power.keys())]]
-                    freq_coremarks = {freq_khz: freqs[freq_khz][0] for freq_khz in freqs_to_sort_step2}
-                    sorted_freqs_step2 = sorted(freq_coremarks.items(), key=lambda x: x[1], reverse=True)
-                    sorted_freqs[cluster][cpu] = [freq_khz for freq_khz, coremarks in sorted_freqs_step2]
+                    # Step 2: Sort frequencies based on CoreMarks (iter/s) and Power (mW)
+                    sorted_freqs[cluster][cpu] = sorted(freq_energy_power.keys(), key=lambda x: (freq_energy_power[x][0], freq_energy_power[x][1]), reverse=True)
+
+                    # Filter out frequencies with lower CoreMarks scores, keeping the lowest and highest frequencies untouched
+                    lowest_freq = sorted_freqs[cluster][cpu][0]
+                    highest_freq = sorted_freqs[cluster][cpu][-1]
+                    filtered_freqs = [freq for freq in sorted_freqs[cluster][cpu][1:-1] if round(freqs[freq][0], 4) > round(freqs[highest_freq][0], 4) or freq == highest_freq]
+                    sorted_freqs[cluster][cpu] = [lowest_freq] + filtered_freqs + [highest_freq]
     return sorted_freqs
     
 def main():
