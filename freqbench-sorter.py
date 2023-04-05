@@ -1,7 +1,11 @@
 import csv
 
 def read_freqbench_results(filename, little_cpus, big_cpus):
-    freq_cpus = {"LITTLE": {f"CPU {cpu}": {} for cpu in range(little_cpus)}, "BIG": {f"CPU {cpu}": {} for cpu in range(big_cpus)}}
+    freq_cpus = {"LITTLE": {}, "BIG": {}}
+    for cpu in range(little_cpus):
+        freq_cpus["LITTLE"][f"CPU {cpu}"] = {}
+    for cpu in range(big_cpus):
+        freq_cpus["BIG"][f"CPU {cpu}"] = {}
     with open(filename, 'r') as file:
         reader = csv.DictReader(file)
         for row in reader:
@@ -18,9 +22,10 @@ def read_freqbench_results(filename, little_cpus, big_cpus):
             else:
                 cluster = "BIG"
                 cpu_name = f"CPU {cpu - little_cpus+1}"
-            if freq_khz not in freq_cpus[cluster][cpu_name]:
-                freq_cpus[cluster][cpu_name][freq_khz] = (coremarks, coremarks_mhz, power, energy, ulpmark)
-                
+            if energy < ulpmark:
+                if freq_khz not in freq_cpus[cluster][cpu_name]:
+                    freq_cpus[cluster][cpu_name][freq_khz] = (coremarks, coremarks_mhz, power, energy, ulpmark)
+
     # Sort the frequencies in ascending order
     for cluster in freq_cpus:
         for cpu in freq_cpus[cluster]:
